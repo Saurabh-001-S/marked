@@ -1,0 +1,236 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  // url intentionally NOT set here — Prisma 7 moved connection URLs out of
+  // schema.prisma entirely. See prisma.config.ts (CLI/migrations) and
+  // src/config/db.js (runtime, via a driver adapter).
+}
+
+// ---------- Enums ----------
+
+enum SubscriptionPlan {
+  STARTER
+  PRO
+  FIRM
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  CANCELED
+}
+
+enum Direction {
+  LONG
+  SHORT
+}
+
+enum PlanFollowed {
+  YES
+  NO
+  NA
+}
+
+enum KeepDrop {
+  KEEP
+  DROP
+  UNDECIDED
+}
+
+// ---------- Core ----------
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime @default(now())
+
+  emailVerified             Boolean   @default(false)
+  verificationToken         String?   @unique
+  verificationTokenExpiry   DateTime?
+  passwordResetToken        String?   @unique
+  passwordResetExpiry       DateTime?
+
+  subscription      Subscription?
+  challengeAccounts ChallengeAccount[]
+  setupPreferences  SetupPreference[]
+}
+
+model Subscription {
+  id                     String             @id @default(cuid())
+  user                   User               @relation(fields: [userId], references: [id])
+  userId                 String             @unique
+  plan                   SubscriptionPlan   @default(STARTER)
+  status                 SubscriptionStatus @default(TRIAL)
+  razorpaySubscriptionId String?            @unique
+  currentPeriodEnd       DateTime?
+  gracePeriodEndsAt      DateTime? // set when a payment fails (PAST_DUE) — access continues until this passes
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+}
+
+// A user can run multiple challenge attempts (e.g. FundedNext Stellar, FTMO) in parallel
+model ChallengeAccount {
+  id                  String   @id @default(cuid())
+  user                User     @relation(fields: [userId], references: [id])
+  userId              String
+  name                String   // e.g. "FundedNext Stellar 2-Step"
+  startingBalance     Float
+  profitTargetPercent Float?   // e.g. 8 for an 8% profit target
+  maxDrawdownPercent  Float?   // e.g. 6 for a 6% max drawdown limit
+  minTradingDays      Int?     // minimum days required to pass the phase
+  createdAt           DateTime @default(now())
+  archived            Boolean  @default(false)
+
+  dailyLogs     DailyLog[]
+  weeklyReviews WeeklyReview[]
+  monthlyStats  MonthlyStat[]
+}
+
+// ---------- Daily Log ----------
+
+model DailyLog {
+  id                    String   @id @default(cuid())
+  challengeAccount      ChallengeAccount @relation(fields: [challengeAccountId], references: [id])
+  challengeAccountId    String
+  date                  DateTime
+  dayNumberInChallenge  Int?
+  accountBalance        Float
+  newsEvents            String?
+  preSessionBiasHtf     String?
+  keyVpLevels           String?
+
+  // End of day summary
+  dailyLossLimitHit     Boolean  @default(false)
+  stayedWithinMaxTrades Boolean  @default(true)
+  whatWorkedToday       String?
+  whatToFixTomorrow     String?
+  chartSnapshotUrl      String?
+  oneLineLesson         String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  trades      Trade[]
+  emotionLog  EmotionLog?
+
+  @@unique([challengeAccountId, date])
+  @@index([challengeAccountId, date])
+}
+
+model Trade {
+  id             String       @id @default(cuid())
+  dailyLog       DailyLog     @relation(fields: [dailyLogId], references: [id], onDelete: Cascade)
+  dailyLogId     String
+  tradeNumber    Int          // 1 or 2 given the max-2-trades rule, but not hard capped in schema
+  time           String?      // stored as HH:MM, session-local
+  direction      Direction
+  entry          Float?
+  stopLoss       Float?
+  takeProfit     Float?
+  lotSize        Float?
+  riskReward     String?      // "1:2" stored as string since traders write it loosely
+  method         String?      // e.g. "VP POC", matches SetupPreference.setupType
+  cotSignal      String?      // "Bull" / "Bear"
+  resultR        Float?
+  pnl            Float?
+  setupDescription String?
+  domConfirmation  String?
+  followedPlan     PlanFollowed @default(NA)
+
+  emotion TradeEmotion?
+
+  @@index([dailyLogId])
+}
+
+// ---------- Emotion & Discipline ----------
+
+model EmotionLog {
+  id         String   @id @default(cuid())
+  dailyLog   DailyLog @relation(fields: [dailyLogId], references: [id], onDelete: Cascade)
+  dailyLogId String   @unique
+
+  // Pre-session state
+  sleepQuality        Int?     // 1-10
+  mentalClarity       Int?     // 1-10
+  confidenceInPlan     Int?    // 1-10
+  morningRoutineDone   Boolean @default(false)
+  externalStress       String?
+  physicalState        String?
+
+  // Post-session wind-down
+  overallEmotionalState Int?   // 1-10
+  steppedAwayAfterClose Boolean?
+  windDownUsed          Boolean?
+  carryoverThoughts     String?
+  reflectionNotes       String?
+
+  // Fixed 10-item discipline checklist stored as JSON: { "waitedForSession": true, ... }
+  // Kept as JSON rather than 10 columns since the checklist is edited as a set, not queried per-item.
+  disciplineChecklist Json?
+
+  createdAt DateTime @default(now())
+}
+
+model TradeEmotion {
+  id                String  @id @default(cuid())
+  trade             Trade   @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+  tradeId           String  @unique
+  emotionBeforeEntry String?
+  emotionDuringTrade String?
+  emotionAfterClose  String?
+  urgeToBreakRules   Boolean @default(false)
+  whatTriggeredIt    String?
+}
+
+// ---------- Weekly / Monthly (qualitative fields only — numbers are computed via query) ----------
+
+model WeeklyReview {
+  id                 String   @id @default(cuid())
+  challengeAccount   ChallengeAccount @relation(fields: [challengeAccountId], references: [id])
+  challengeAccountId String
+  weekStarting       DateTime
+  weekEnding         DateTime
+
+  whatWorkedThisWeek     String?
+  whatDidntWork          String?
+  oneChangeForNextWeek   String?
+  onTrackForTarget       Boolean?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([challengeAccountId, weekStarting])
+}
+
+model MonthlyStat {
+  id                 String   @id @default(cuid())
+  challengeAccount   ChallengeAccount @relation(fields: [challengeAccountId], references: [id])
+  challengeAccountId String
+  month              DateTime // stored as first-of-month date
+
+  monthlyTakeaway    String?
+  onPaceToPassPhase  Boolean?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([challengeAccountId, month])
+}
+
+// A user's per-setup keep/drop decision, independent of any single month
+model SetupPreference {
+  id         String   @id @default(cuid())
+  user       User     @relation(fields: [userId], references: [id])
+  userId     String
+  setupType  String   // "COT High/Low Sweep", "VP POC Rejection", custom types allowed
+  decision   KeepDrop @default(UNDECIDED)
+  updatedAt  DateTime @updatedAt
+
+  @@unique([userId, setupType])
+}
