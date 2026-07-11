@@ -102,6 +102,19 @@ export async function login(req, res) {
   const valid = await bcrypt.compare(password, user.passwordHash);
   if (!valid) return res.status(401).json({ error: 'Invalid email or password' });
 
+
+ /*
+ Anyone who logged in before the COOKIE_DOMAIN fix has a leftover
+ exact-host-scoped cookie sitting alongside the new domain-scoped one —
+ same name, different Domain attribute, so setting a new one doesn't
+ overwrite it. Explicitly clear the legacy host-only version so logging
+ in again self-heals instead of leaving two colliding cookies behind. 
+ ****/
+  res.clearCookie('refreshToken', { path: '/api/auth' });
+  res.clearCookie('csrfToken');
+
+  setAuthCookies(res, user.id);
+
   setAuthCookies(res, user.id);
   res.json({
     user: { id: user.id, email: user.email, name: user.name, emailVerified: user.emailVerified },

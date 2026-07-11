@@ -75,6 +75,12 @@ export default function DailyLog() {
   const netR = trades.reduce((sum, t) => sum + (Number(t.resultR) || 0), 0);
   const withinMaxTrades = totalTrades <= 2;
 
+function isTradeEmpty(t) {
+   return !t.entry && !t.stopLoss && !t.takeProfit && !t.lotSize && !t.riskReward &&
+          !t.method && !t.cotSignal && !t.resultR && !t.pnl &&
+          !t.setupDescription && !t.domConfirmation;
+ }
+
   const saveMutation = useMutation({
     mutationFn: () =>
       api.put(`/accounts/${accountId}/daily-logs`, {
@@ -85,7 +91,8 @@ export default function DailyLog() {
         preSessionBiasHtf: form.preSessionBiasHtf,
         keyVpLevels: form.keyVpLevels,
         trades: trades
-          .filter((t) => t.entry || t.setupDescription) // skip fully-empty rows
+          // .filter((t) => t.entry || t.setupDescription) // skip fully-empty rows
+          .filter((t) => !isTradeEmpty(t)) // skip rows where literally nothing was entere
           .map((t) => ({ ...t, entry: num(t.entry), stopLoss: num(t.stopLoss), takeProfit: num(t.takeProfit), lotSize: num(t.lotSize), resultR: num(t.resultR), pnl: num(t.pnl) })),
         endOfDay: { ...endOfDay, stayedWithinMaxTrades: withinMaxTrades },
       }),
