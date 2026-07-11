@@ -30,6 +30,8 @@ function randomToken() {
 // sameSite:'none' is required for a cross-origin client+API split in
 // production, which requires secure:true (HTTPS) to go with it — that's
 // exactly why this branches on isProd rather than just hardcoding 'none'.
+
+const cookieDomain = isProd ? process.env.COOKIE_DOMAIN : undefined;
 function setAuthCookies(res, userId) {
   const refreshToken = signRefreshToken(userId);
 
@@ -39,6 +41,7 @@ function setAuthCookies(res, userId) {
     sameSite: isProd ? 'none' : 'lax',
     maxAge: 30 * 24 * 60 * 60 * 1000,
     path: '/api/auth',
+    domain: cookieDomain,
   });
 
   const csrfToken = randomToken();
@@ -47,12 +50,13 @@ function setAuthCookies(res, userId) {
     secure: isProd,
     sameSite: isProd ? 'none' : 'lax',
     maxAge: 30 * 24 * 60 * 60 * 1000,
+    domain: cookieDomain,
   });
 }
 
 function clearAuthCookies(res) {
-  res.clearCookie('refreshToken', { path: '/api/auth' });
-  res.clearCookie('csrfToken');
+  res.clearCookie('refreshToken', { path: '/api/auth', domain: cookieDomain });
+  res.clearCookie('csrfToken', { domain: cookieDomain });
 }
 
 export async function register(req, res) {
