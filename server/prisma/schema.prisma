@@ -110,7 +110,6 @@ model DailyLog {
   stayedWithinMaxTrades Boolean  @default(true)
   whatWorkedToday       String?
   whatToFixTomorrow     String?
-  chartSnapshotUrl      String?
   oneLineLesson         String?
 
   createdAt DateTime @default(now())
@@ -141,6 +140,7 @@ model Trade {
   pnl            Float?
   setupDescription String?
   domConfirmation  String?
+  chartSnapshotUrl String?
   followedPlan     PlanFollowed @default(NA)
 
   emotion TradeEmotion?

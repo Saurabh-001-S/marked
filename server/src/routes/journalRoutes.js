@@ -7,6 +7,7 @@ import { getMonthlyRollup, upsertMonthlyStat } from '../controllers/monthlyContr
 import { upsertSetupPreference, listSetupPreferences } from '../controllers/setupPreferenceController.js';
 import { exportDailyLogPdf, exportWeeklyPdf, exportMonthlyPdf } from '../controllers/pdfController.js';
 import { getSnapshotUploadUrl } from '../controllers/uploadController.js';
+import { getReportsSummary } from '../controllers/reportsController.js';
 
 const router = Router();
 router.use(requireAuth, requireActiveSubscription);
@@ -25,6 +26,7 @@ router.get('/accounts/:challengeAccountId/weekly/pdf', exportWeeklyPdf);
 router.get('/accounts/:challengeAccountId/monthly', getMonthlyRollup);
 router.put('/accounts/:challengeAccountId/monthly', upsertMonthlyStat);
 router.get('/accounts/:challengeAccountId/monthly/pdf', exportMonthlyPdf);
+router.get('/accounts/:challengeAccountId/reports/summary', getReportsSummary);
 
 router.get('/setup-preferences', listSetupPreferences);
 router.put('/setup-preferences', upsertSetupPreference);

@@ -80,7 +80,113 @@ function table(doc, headers, rows, widths) {
 const num = (v, d = 1) => (v == null ? '—' : Number(v).toFixed(d));
 
 // ---------- Daily Trade Log ----------
-export function renderDailyLogPdf(doc, { account, log, date }) {
+// export function renderDailyLogPdf(doc, { account, log, date }) {
+//   header(doc, 'Daily Trade Log', `${account.name} · ${new Date(date).toDateString()}`);
+//   ruleBanner(doc, 'MAX 2 TRADES/DAY · RISK 1.5–2% PER TRADE · LONDON SESSION ONLY · CONFIRMED COT SIGNAL REQUIRED AT KEY VP LEVEL');
+
+//   if (!log) {
+//     doc.fillColor(MUTED).fontSize(10).text('No log recorded for this date.');
+//     return;
+//   }
+
+//   twoCol(doc, [
+//     ['Account balance', `$${num(log.accountBalance, 2)}`],
+//     ['Day # in challenge', log.dayNumberInChallenge],
+//     ['News / red folder events', log.newsEvents],
+//     ['Pre-session bias (HTF)', log.preSessionBiasHtf],
+//   ]);
+
+//   sectionTitle(doc, 'Trades');
+//   if (log.trades.length) {
+//     table(
+//       doc,
+//       ['#', 'Dir', 'Entry', 'SL', 'TP', 'R:R', 'Method', 'Result (R)', 'Plan?'],
+//       log.trades.map((t) => [t.tradeNumber, t.direction, t.entry, t.stopLoss, t.takeProfit, t.riskReward, t.method, t.resultR, t.followedPlan]),
+//       [25, 40, 55, 55, 55, 45, 90, 65, 50]
+//     );
+//   } else {
+//     doc.fillColor(MUTED).fontSize(9).text('No trades logged.');
+//     doc.moveDown(1);
+//   }
+
+//   sectionTitle(doc, 'End of Day Summary');
+//   twoCol(doc, [
+//     ['Total trades taken', log.trades.length],
+//     ['Net R for the day', num(log.trades.reduce((s, t) => s + (t.resultR ?? 0), 0))],
+//     ['Daily loss limit hit?', log.dailyLossLimitHit ? 'Yes' : 'No'],
+//     ['Stayed within max trades?', log.stayedWithinMaxTrades ? 'Yes' : 'No'],
+//   ]);
+//   kvRow(doc, 'What worked today', log.whatWorkedToday);
+//   kvRow(doc, 'What to fix tomorrow', log.whatToFixTomorrow);
+//   kvRow(doc, "One-line lesson for tomorrow", log.oneLineLesson);
+// }
+
+// Server-side image fetch for embedding chart snapshots — returns null on
+// any failure (network error, 404, etc.) rather than throwing, so one bad
+// image never takes down the whole PDF generation.
+async function fetchImageBuffer(url) {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    return Buffer.from(await res.arrayBuffer());
+  } catch {
+    return null;
+  }
+}
+
+// One block per trade instead of a cramped table — there are too many
+// fields per trade now (time, lot size, COT signal, P/L, notes, image) to
+// fit as table columns on an A4 page.
+async function renderTradeBlock(doc, t) {
+  if (doc.y > 620) doc.addPage();
+
+  doc.fillColor(AMBER).fontSize(11).font('Helvetica-Bold').text(`TRADE ${t.tradeNumber}`);
+  doc.moveDown(0.3);
+
+  twoCol(doc, [
+    ['Time', t.time],
+    ['Direction', t.direction],
+    ['Entry', t.entry],
+    ['Stop loss', t.stopLoss],
+    ['Take profit', t.takeProfit],
+    ['Lot size', t.lotSize],
+    ['R:R', t.riskReward],
+    ['Method', t.method],
+    ['COT signal', t.cotSignal],
+    ['Result (R)', t.resultR],
+    ['P/L (₹/$)', t.pnl != null ? num(t.pnl, 2) : null],
+    ['Followed plan?', t.followedPlan],
+  ]);
+
+  kvRow(doc, 'Setup / liquidity sweep description', t.setupDescription);
+  kvRow(doc, 'DOM confirmation', t.domConfirmation);
+
+  if (t.chartSnapshotUrl) {
+    const buffer = await fetchImageBuffer(t.chartSnapshotUrl);
+    doc.fillColor(MUTED).fontSize(8).font('Helvetica-Bold').text('CHART SNAPSHOT');
+    doc.moveDown(0.3);
+    if (buffer) {
+      if (doc.y > 500) doc.addPage();
+      try {
+        doc.image(buffer, { fit: [280, 180] });
+        doc.y += 190; // pdfkit doesn't auto-advance the cursor after doc.image()
+      } catch {
+        // Most likely a WEBP — pdfkit only supports embedding JPEG/PNG
+        doc.fillColor(MUTED).fontSize(9).font('Helvetica').text('(Image format not supported in PDF export — try PNG or JPEG)');
+        doc.moveDown(1);
+      }
+    } else {
+      doc.fillColor(MUTED).fontSize(9).font('Helvetica').text('(Chart snapshot unavailable)');
+      doc.moveDown(1);
+    }
+  }
+
+  doc.moveDown(0.5);
+  doc.strokeColor('#DDDDDD').moveTo(40, doc.y).lineTo(555, doc.y).stroke();
+  doc.moveDown(1);
+}
+
+export async function renderDailyLogPdf(doc, { account, log, date }) {
   header(doc, 'Daily Trade Log', `${account.name} · ${new Date(date).toDateString()}`);
   ruleBanner(doc, 'MAX 2 TRADES/DAY · RISK 1.5–2% PER TRADE · LONDON SESSION ONLY · CONFIRMED COT SIGNAL REQUIRED AT KEY VP LEVEL');
 
@@ -89,26 +195,26 @@ export function renderDailyLogPdf(doc, { account, log, date }) {
     return;
   }
 
+  sectionTitle(doc, 'Pre-Session Info');
   twoCol(doc, [
     ['Account balance', `$${num(log.accountBalance, 2)}`],
     ['Day # in challenge', log.dayNumberInChallenge],
     ['News / red folder events', log.newsEvents],
     ['Pre-session bias (HTF)', log.preSessionBiasHtf],
+    ['Key VP levels marked', log.keyVpLevels],
   ]);
 
   sectionTitle(doc, 'Trades');
   if (log.trades.length) {
-    table(
-      doc,
-      ['#', 'Dir', 'Entry', 'SL', 'TP', 'R:R', 'Method', 'Result (R)', 'Plan?'],
-      log.trades.map((t) => [t.tradeNumber, t.direction, t.entry, t.stopLoss, t.takeProfit, t.riskReward, t.method, t.resultR, t.followedPlan]),
-      [25, 40, 55, 55, 55, 45, 90, 65, 50]
-    );
+    for (const t of log.trades) {
+      await renderTradeBlock(doc, t);
+    }
   } else {
     doc.fillColor(MUTED).fontSize(9).text('No trades logged.');
     doc.moveDown(1);
   }
 
+  if (doc.y > 620) doc.addPage();
   sectionTitle(doc, 'End of Day Summary');
   twoCol(doc, [
     ['Total trades taken', log.trades.length],

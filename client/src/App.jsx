@@ -12,6 +12,7 @@ import DailyLog from './pages/DailyLog';
 import EmotionTracker from './pages/EmotionTracker';
 import WeeklyReview from './pages/WeeklyReview';
 import MonthlyStats from './pages/MonthlyStats';
+import Reports from './pages/Reports';
 
 export default function App() {
   return (
@@ -29,6 +30,8 @@ export default function App() {
           <Route path="/journal/:accountId/:date/emotion" element={<ProtectedRoute><EmotionTracker /></ProtectedRoute>} />
           <Route path="/journal/:accountId/weekly" element={<ProtectedRoute><WeeklyReview /></ProtectedRoute>} />
           <Route path="/journal/:accountId/monthly" element={<ProtectedRoute><MonthlyStats /></ProtectedRoute>} />
+          <Route path="/journal/:accountId/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+
         </Routes>
       </AuthProvider>
     </BrowserRouter>

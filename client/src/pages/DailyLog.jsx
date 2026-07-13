@@ -5,7 +5,6 @@ import api from '../api/client';
 import { downloadPdf } from '../api/downloadPdf';
 import TradeCard from '../components/TradeCard';
 import JournalNav from '../components/JournalNav';
-import { uploadChartSnapshot } from '../api/uploadSnapshot';
 
 const emptyTrade = () => ({ direction: 'LONG', followedPlan: 'NA' });
 
@@ -34,7 +33,6 @@ export default function DailyLog() {
     whatWorkedToday: '',
     whatToFixTomorrow: '',
     oneLineLesson: '',
-    chartSnapshotUrl: '',
   });
 
 
@@ -65,8 +63,6 @@ export default function DailyLog() {
       dailyLossLimitHit: existingLog.dailyLossLimitHit ?? false,
       whatWorkedToday: existingLog.whatWorkedToday ?? '',
       whatToFixTomorrow: existingLog.whatToFixTomorrow ?? '',
-      
-     chartSnapshotUrl: existingLog.chartSnapshotUrl ?? '',
       oneLineLesson: existingLog.oneLineLesson ?? '',
     });
   }, [existingLog]);
@@ -74,12 +70,6 @@ export default function DailyLog() {
   const totalTrades = trades.filter((t) => t.entry).length;
   const netR = trades.reduce((sum, t) => sum + (Number(t.resultR) || 0), 0);
   const withinMaxTrades = totalTrades <= 2;
-
-function isTradeEmpty(t) {
-   return !t.entry && !t.stopLoss && !t.takeProfit && !t.lotSize && !t.riskReward &&
-          !t.method && !t.cotSignal && !t.resultR && !t.pnl &&
-          !t.setupDescription && !t.domConfirmation;
- }
 
   const saveMutation = useMutation({
     mutationFn: () =>
@@ -91,7 +81,6 @@ function isTradeEmpty(t) {
         preSessionBiasHtf: form.preSessionBiasHtf,
         keyVpLevels: form.keyVpLevels,
         trades: trades
-          // .filter((t) => t.entry || t.setupDescription) // skip fully-empty rows
           .filter((t) => !isTradeEmpty(t)) // skip rows where literally nothing was entere
           .map((t) => ({ ...t, entry: num(t.entry), stopLoss: num(t.stopLoss), takeProfit: num(t.takeProfit), lotSize: num(t.lotSize), resultR: num(t.resultR), pnl: num(t.pnl) })),
         endOfDay: { ...endOfDay, stayedWithinMaxTrades: withinMaxTrades },
@@ -110,22 +99,6 @@ function isTradeEmpty(t) {
   }
   function removeTrade(index) {
     setTrades((prev) => prev.filter((_, i) => i !== index));
-  }
-
-  const [uploadingSnapshot, setUploadingSnapshot] = useState(false);
-
-  async function handleSnapshotUpload(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    setUploadingSnapshot(true);
-    try {
-      const url = await uploadChartSnapshot(accountId, file);
-      setEndOfDay((prev) => ({ ...prev, chartSnapshotUrl: url }));
-    } catch (err) {
-      alert('Upload failed — try a smaller image or check your connection.');
-    } finally {
-      setUploadingSnapshot(false);
-    }
   }
 
   const [downloading, setDownloading] = useState(false);
@@ -212,8 +185,8 @@ function isTradeEmpty(t) {
 
         <Section title="Trades">
           {trades.map((t, i) => (
-            <TradeCard key={i} trade={t} index={i} onChange={updateTrade} onRemove={removeTrade} setupOptions={setupOptions} />
-          ))}
+            <TradeCard key={i} trade={t} index={i} onChange={updateTrade} onRemove={removeTrade} setupOptions={setupOptions} accountId={accountId} />
+            ))}
           <button
             type="button"
             onClick={addTrade}
@@ -235,14 +208,14 @@ function isTradeEmpty(t) {
             <TopField label="What to Fix Tomorrow" value={endOfDay.whatToFixTomorrow} onChange={(v) => setEndOfDay({ ...endOfDay, whatToFixTomorrow: v })} textarea placeholder="Entered too early before volume confirmation..." />
           </div>
 
-          <div className="mb-4">
+          {/* <div className="mb-4">
             <span className="block text-[10px] font-mono uppercase tracking-wide text-gray-500 mb-1.5">Chart Snapshot</span>
               {endOfDay.chartSnapshotUrl && (
                 <img src={endOfDay.chartSnapshotUrl} alt="Chart snapshot" className="rounded-md border border-border mb-2 max-h-64" />
               )}
               <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handleSnapshotUpload} disabled={uploadingSnapshot} className="text-xs font-mono text-gray-400" />
               {uploadingSnapshot && <p className="text-xs font-mono text-amber mt-1">Uploading...</p>}
-          </div>
+          </div> */}
           {/* <TopField label="Setup Sketch Notes (mark entry, SL, TP, key VP levels)" value={endOfDay.chartSnapshotNotes} onChange={(v) => setEndOfDay({ ...endOfDay, chartSnapshotNotes: v })} textarea tall /> */}
           
           <div className="mt-4">
@@ -267,6 +240,19 @@ function isTradeEmpty(t) {
 function num(v) {
   return v === '' || v === undefined || v === null ? null : Number(v);
 }
+
+// Instead of hardcoding which fields "count" — the bug that caused the
+// custom-method issue's cousin: forgetting to list a newly added field
+// here — check generically. Only `direction` and `followedPlan` carry
+// default values on an untouched row, so anything else being non-empty
+// means the user actually put something in this trade.
+const TRADE_DEFAULT_FIELDS = ['direction', 'followedPlan'];
+function isTradeEmpty(t) {
+  return Object.entries(t)
+    .filter(([key]) => !TRADE_DEFAULT_FIELDS.includes(key))
+    .every(([, value]) => value === '' || value === null || value === undefined);
+}
+
 function formatDate(iso) {
   return new Date(iso).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }

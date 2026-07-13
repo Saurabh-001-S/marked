@@ -16,6 +16,7 @@ export default function JournalNav({ accountId, date }) {
       <NavLink to={`/journal/${accountId}/${today}/emotion`} className={linkClass}>Emotion</NavLink>
       <NavLink to={`/journal/${accountId}/weekly`} className={linkClass}>Weekly</NavLink>
       <NavLink to={`/journal/${accountId}/monthly`} className={linkClass}>Monthly</NavLink>
+      <NavLink to={`/journal/${accountId}/reports`} className={linkClass}>Reports</NavLink>
     </div>
   );
 }

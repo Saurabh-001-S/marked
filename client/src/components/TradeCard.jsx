@@ -1,12 +1,39 @@
-import { useState } from 'react';
+import { useState ,useEffect} from 'react';
+import { uploadChartSnapshot } from '../api/uploadSnapshot';
 
 const DIRECTIONS = ['LONG', 'SHORT'];
 const PLAN_OPTIONS = ['YES', 'NO', 'NA'];
 
-export default function TradeCard({ trade, index, onChange, onRemove, setupOptions = [] }) {
+export default function TradeCard({ trade, index, onChange, onRemove, setupOptions = [], accountId }) {
   const set = (field) => (e) => onChange(index, { ...trade, [field]: e.target.value });
   const isCustomMethod = trade.method && !setupOptions.includes(trade.method);
   const [showCustomInput, setShowCustomInput] = useState(isCustomMethod);
+  const [uploadingSnapshot, setUploadingSnapshot] = useState(false);
+  
+// isCustomMethod above only gets checked once, at mount — but trade data
+// often arrives *after* mount (loaded async from the server), so this
+// effect re-checks whenever the actual method or the options list changes.
+// Only ever turns custom mode ON here, never off — the manual "↩" button
+// already handles turning it off as a deliberate user action.
+useEffect(() => {
+  if (trade.method && setupOptions.length > 0 && !setupOptions.includes(trade.method)) {
+    setShowCustomInput(true);
+  }
+}, [trade.method, setupOptions]);
+
+async function handleSnapshotUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  setUploadingSnapshot(true);
+  try {
+    const url = await uploadChartSnapshot(accountId, file);
+    onChange(index, { ...trade, chartSnapshotUrl: url });
+  } catch {
+    alert('Upload failed — try a smaller image or check your connection.');
+  } finally {
+    setUploadingSnapshot(false);
+  }
+}
 
   return (
     <div className="bg-panel border border-border rounded-lg p-5 mb-5">
@@ -97,6 +124,20 @@ export default function TradeCard({ trade, index, onChange, onRemove, setupOptio
         <Field label="Setup / Liquidity Sweep Description">
           <textarea value={trade.setupDescription || ''} onChange={set('setupDescription')} className="input h-16 resize-none" placeholder="Describe the setup..." />
         </Field>
+      </div>
+      <div className="mb-3">
+        <span className="block text-[10px] font-mono uppercase tracking-wide text-gray-500 mb-1.5">Chart Snapshot</span>
+        {trade.chartSnapshotUrl && (
+          <img src={trade.chartSnapshotUrl} alt="Trade chart snapshot" className="rounded-md border border-border mb-2 max-h-48" />
+        )}
+        <input
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          onChange={handleSnapshotUpload}
+          disabled={uploadingSnapshot}
+          className="text-xs font-mono text-gray-400"
+        />
+        {uploadingSnapshot && <p className="text-xs font-mono text-amber mt-1">Uploading...</p>}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">

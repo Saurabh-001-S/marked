@@ -6,7 +6,7 @@ import JournalNav from '../components/JournalNav';
 import ScalePicker from '../components/ScalePicker';
 
 const CHECKLIST_ITEMS = [
-  ['waitedForSessionWindow', 'Waited for London session window only'],
+  // ['waitedForSessionWindow', 'Waited for London session window only'],
   ['didNotExceedMaxTrades', 'Did not exceed 2 trades today'],
   ['riskSizedCorrectly', 'Risk sized at 1.5–2% per trade'],
   ['confirmedCotSignal', 'Confirmed COT signal at key VP level before entry'],

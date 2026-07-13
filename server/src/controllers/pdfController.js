@@ -9,7 +9,7 @@ export async function exportDailyLogPdf(req, res) {
   if (!result) return res.status(404).json({ error: 'Challenge account not found' });
 
   const doc = startPdf(res, `daily-log-${date}.pdf`);
-  renderDailyLogPdf(doc, { account: result.account, log: result.log, date });
+  await renderDailyLogPdf(doc, { account: result.account, log: result.log, date });
   doc.end();
 }
 
