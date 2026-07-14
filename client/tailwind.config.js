@@ -1,6 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ['./index.html', './src/**/*.{js,jsx}'],
+  content: ["./index.html", "./src/**/*.{js,jsx}"],
   theme: {
     extend: {
       colors: {
@@ -12,8 +12,8 @@ export default {
         red: '#F97066',
       },
       fontFamily: {
-        display: ['"Space Grotesk"', 'sans-serif'],
-        mono: ['"IBM Plex Mono"', 'monospace'],
+        display: ['"Space Grotesk"', "sans-serif"],
+        mono: ['"IBM Plex Mono"', "monospace"],
       },
     },
   },

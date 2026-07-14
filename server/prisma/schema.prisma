@@ -145,6 +145,7 @@ model Trade {
 
   emotion TradeEmotion?
 
+  @@unique([dailyLogId, tradeNumber])
   @@index([dailyLogId])
 }
 

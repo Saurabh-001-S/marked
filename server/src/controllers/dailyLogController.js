@@ -1,6 +1,22 @@
 import prisma from '../config/db.js';
 import { registerSetupTypeIfNew } from './setupPreferenceController.js';
 
+// Only these are real, writable scalar columns on Trade. Everything else
+// that might arrive in a trade object from the client — id, emotion (a
+// relation, not a scalar), createdAt, etc. — is dropped here rather than
+// trusted, since the frontend often echoes back whatever it last fetched
+// (which includes server-added fields) rather than only what changed.
+const TRADE_WRITABLE_FIELDS = [
+  'time', 'direction', 'entry', 'stopLoss', 'takeProfit', 'lotSize',
+  'riskReward', 'method', 'cotSignal', 'resultR', 'pnl',
+  'setupDescription', 'domConfirmation', 'chartSnapshotUrl', 'followedPlan',
+];
+function sanitizeTrade(t) {
+  return Object.fromEntries(
+    TRADE_WRITABLE_FIELDS.filter((key) => key in t).map((key) => [key, t[key]])
+  );
+}
+
 // Creates or updates a daily log for a given challenge account + date, including nested trades.
 // Upsert pattern because "Save Day" in the UI should work whether the log exists yet or not.
 export async function upsertDailyLog(req, res) {
@@ -25,12 +41,31 @@ export async function upsertDailyLog(req, res) {
     },
   });
 
-  // Replace trades for this log wholesale — simpler and safer than diffing on every save
-  await prisma.trade.deleteMany({ where: { dailyLogId: log.id } });
+  // Upsert trades by tradeNumber instead of delete-all-and-recreate.
+  // Recreating trades on every save generated new trade IDs each time,
+  // which silently cascade-deleted any TradeEmotion rows attached to the
+  // old ones — a bug that was tolerable when emotion was rarely edited,
+  // but not now that it lives directly on the trade card and gets touched
+  // on nearly every save.
+  const existingTrades = await prisma.trade.findMany({ where: { dailyLogId: log.id } });
+  const incomingNumbers = trades.map((_, i) => i + 1);
+  const toDelete = existingTrades.filter((et) => !incomingNumbers.includes(et.tradeNumber));
+  if (toDelete.length) {
+    await prisma.trade.deleteMany({ where: { id: { in: toDelete.map((t) => t.id) } } });
+  }
+
   if (trades.length) {
-    await prisma.trade.createMany({
-      data: trades.map((t, i) => ({ ...t, dailyLogId: log.id, tradeNumber: i + 1 })),
-    });
+    await Promise.all(
+      trades.map((t, i) => {
+        const tradeNumber = i + 1;
+        const data = sanitizeTrade(t);
+        return prisma.trade.upsert({
+          where: { dailyLogId_tradeNumber: { dailyLogId: log.id, tradeNumber } },
+          update: data,
+          create: { ...data, dailyLogId: log.id, tradeNumber },
+        });
+      })
+    );
     // Fire-and-forget-ish but awaited so a brand-new custom setup type is
     // guaranteed to exist by the time the user opens the Monthly page next.
     await Promise.all([...new Set(trades.map((t) => t.method).filter(Boolean))].map((m) => registerSetupTypeIfNew(req.userId, m)));
@@ -38,7 +73,7 @@ export async function upsertDailyLog(req, res) {
 
   const full = await prisma.dailyLog.findUnique({
     where: { id: log.id },
-    include: { trades: true, emotionLog: true },
+    include: { trades: { include: { emotion: true } }, emotionLog: true },
   });
   res.json(full);
 }
@@ -56,8 +91,9 @@ export async function getDailyLog(req, res) {
   res.json(log);
 }
 
-// Used by the PDF export route — same lookup, but returns null instead of writing
-// a 404 response so the caller can decide how to handle "no log yet" itself.
+// Used by the PDF export route — same lookup, but returns null instead of
+// writing a 404 response so the caller can decide how to handle "no log
+// yet" itself.
 export async function fetchDailyLogWithAccount(userId, challengeAccountId, date) {
   const account = await prisma.challengeAccount.findFirst({ where: { id: challengeAccountId, userId } });
   if (!account) return null;
