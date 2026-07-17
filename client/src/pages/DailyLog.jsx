@@ -92,11 +92,27 @@ export default function DailyLog() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <TextField label="Day # in Challenge" value={topFields.dayNumberInChallenge} onChange={(v) => setTopFields({ ...topFields, dayNumberInChallenge: v })} type="number" />
             <TextField label="Account Balance ($)" value={topFields.accountBalance} onChange={(v) => setTopFields({ ...topFields, accountBalance: v })} type="number" />
-            <TextField label="News / Red Folder Events" value={topFields.newsEvents} onChange={(v) => setTopFields({ ...topFields, newsEvents: v })} />
+            <YesNo label="News / Red Folder Events?" value={topFields.newsEvents} onChange={(v) => setTopFields({ ...topFields, newsEvents: v })} />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <TextField label="Pre-Session Bias (HTF)" value={topFields.preSessionBiasHtf} onChange={(v) => setTopFields({ ...topFields, preSessionBiasHtf: v })} textarea />
-            <TextField label="Key VP Levels Marked" value={topFields.keyVpLevels} onChange={(v) => setTopFields({ ...topFields, keyVpLevels: v })} textarea />
+            <div>
+              <span className="block text-[10px] font-mono uppercase tracking-wide text-gray-500 mb-1.5">Pre-Session Bias (HTF)</span>
+              <div className="flex gap-2">
+                {['BULLISH', 'BEARISH', 'NEUTRAL'].map((b) => (
+                  <button
+                    key={b}
+                    type="button"
+                    onClick={() => setTopFields({ ...topFields, preSessionBiasHtf: b })}
+                    className={`flex-1 py-2 rounded-md text-xs font-mono border capitalize ${
+                      topFields.preSessionBiasHtf === b ? 'bg-amber text-[#1A1305] border-amber font-semibold' : 'border-border text-gray-400 hover:border-gray-500'
+                    }`}
+                  >
+                    {b.charAt(0) + b.slice(1).toLowerCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <YesNo label="Key VP Levels Marked?" value={topFields.keyVpLevels} onChange={(v) => setTopFields({ ...topFields, keyVpLevels: v })} />
           </div>
         </Section>
 
@@ -118,7 +134,7 @@ export default function DailyLog() {
             <StatBox label="Total Trades Taken" value={totalTrades} />
             <StatBox label="Net R for the Day" value={netR.toFixed(1)} accent={netR >= 0 ? 'green' : 'red'} />
             <YesNo label="Daily Loss Limit Hit?" value={endOfDay.dailyLossLimitHit} onChange={(v) => setEndOfDay({ ...endOfDay, dailyLossLimitHit: v })} />
-            <StatBox label="Stayed Within Max Trades?" value={withinMaxTrades ? 'Yes' : 'No'} accent={withinMaxTrades ? 'green' : 'red'} />
+            <YesNo label="Stayed Within Max Trades?" value={endOfDay.stayedWithinMaxTrades} onChange={(v) => setEndOfDay({ ...endOfDay, stayedWithinMaxTrades: v })} invert />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <TextField label="What Worked Today" value={endOfDay.whatWorkedToday} onChange={(v) => setEndOfDay({ ...endOfDay, whatWorkedToday: v })} textarea placeholder="Entry precision, patience waiting for setup..." />

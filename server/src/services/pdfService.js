@@ -80,46 +80,6 @@ function table(doc, headers, rows, widths) {
 const num = (v, d = 1) => (v == null ? '—' : Number(v).toFixed(d));
 
 // ---------- Daily Trade Log ----------
-// export function renderDailyLogPdf(doc, { account, log, date }) {
-//   header(doc, 'Daily Trade Log', `${account.name} · ${new Date(date).toDateString()}`);
-//   ruleBanner(doc, 'MAX 2 TRADES/DAY · RISK 1.5–2% PER TRADE · LONDON SESSION ONLY · CONFIRMED COT SIGNAL REQUIRED AT KEY VP LEVEL');
-
-//   if (!log) {
-//     doc.fillColor(MUTED).fontSize(10).text('No log recorded for this date.');
-//     return;
-//   }
-
-//   twoCol(doc, [
-//     ['Account balance', `$${num(log.accountBalance, 2)}`],
-//     ['Day # in challenge', log.dayNumberInChallenge],
-//     ['News / red folder events', log.newsEvents],
-//     ['Pre-session bias (HTF)', log.preSessionBiasHtf],
-//   ]);
-
-//   sectionTitle(doc, 'Trades');
-//   if (log.trades.length) {
-//     table(
-//       doc,
-//       ['#', 'Dir', 'Entry', 'SL', 'TP', 'R:R', 'Method', 'Result (R)', 'Plan?'],
-//       log.trades.map((t) => [t.tradeNumber, t.direction, t.entry, t.stopLoss, t.takeProfit, t.riskReward, t.method, t.resultR, t.followedPlan]),
-//       [25, 40, 55, 55, 55, 45, 90, 65, 50]
-//     );
-//   } else {
-//     doc.fillColor(MUTED).fontSize(9).text('No trades logged.');
-//     doc.moveDown(1);
-//   }
-
-//   sectionTitle(doc, 'End of Day Summary');
-//   twoCol(doc, [
-//     ['Total trades taken', log.trades.length],
-//     ['Net R for the day', num(log.trades.reduce((s, t) => s + (t.resultR ?? 0), 0))],
-//     ['Daily loss limit hit?', log.dailyLossLimitHit ? 'Yes' : 'No'],
-//     ['Stayed within max trades?', log.stayedWithinMaxTrades ? 'Yes' : 'No'],
-//   ]);
-//   kvRow(doc, 'What worked today', log.whatWorkedToday);
-//   kvRow(doc, 'What to fix tomorrow', log.whatToFixTomorrow);
-//   kvRow(doc, "One-line lesson for tomorrow", log.oneLineLesson);
-// }
 
 // Server-side image fetch for embedding chart snapshots — returns null on
 // any failure (network error, 404, etc.) rather than throwing, so one bad
@@ -135,8 +95,8 @@ async function fetchImageBuffer(url) {
 }
 
 // One block per trade instead of a cramped table — there are too many
-// fields per trade now (time, lot size, COT signal, P/L, notes, image) to
-// fit as table columns on an A4 page.
+// fields per trade (time, lot size, COT signal, P/L, notes, image, emotion)
+// to fit as table columns on an A4 page.
 async function renderTradeBlock(doc, t) {
   if (doc.y > 620) doc.addPage();
 
@@ -160,6 +120,25 @@ async function renderTradeBlock(doc, t) {
 
   kvRow(doc, 'Setup / liquidity sweep description', t.setupDescription);
   kvRow(doc, 'DOM confirmation', t.domConfirmation);
+
+  // Trade emotion — only render the section at all if something was
+  // actually filled in, so trades with no emotion notes don't get a mostly
+  // empty "EMOTION" header for no reason.
+  const e = t.emotion;
+  const hasEmotionContent = e && (e.emotionBeforeEntry || e.emotionDuringTrade || e.emotionAfterClose || e.urgeToBreakRules || e.whatTriggeredIt);
+  if (hasEmotionContent) {
+    doc.fillColor(MUTED).fontSize(8).font('Helvetica-Bold').text('EMOTION');
+    doc.moveDown(0.3);
+    twoCol(doc, [
+      ['Before entry', e.emotionBeforeEntry],
+      ['During trade', e.emotionDuringTrade],
+      ['After close', e.emotionAfterClose],
+      ['Urge to break rules?', e.urgeToBreakRules ? 'Yes' : 'No'],
+    ]);
+    if (e.urgeToBreakRules && e.whatTriggeredIt) {
+      kvRow(doc, 'What triggered it', e.whatTriggeredIt);
+    }
+  }
 
   if (t.chartSnapshotUrl) {
     const buffer = await fetchImageBuffer(t.chartSnapshotUrl);
@@ -249,11 +228,15 @@ export function renderWeeklyPdf(doc, data) {
     ['Ending balance', `$${num(data.endBalance, 2)}`],
   ]);
 
-  sectionTitle(doc, 'Challenge Progress');
+  sectionTitle(doc, 'Discipline');
   twoCol(doc, [
     ['On track for target?', data.onTrackForTarget == null ? '—' : data.onTrackForTarget ? 'Yes' : 'No'],
     ['Profit target', data.account.profitTargetPercent ? `${data.account.profitTargetPercent}%` : '—'],
+    ['Urge to break rules (trades)', data.urgeToBreakRulesCount ?? 0],
   ]);
+  if (data.triggers?.length) {
+    kvRow(doc, 'Common triggers this week', data.triggers.join(', '));
+  }
 
   if (data.reflection) {
     sectionTitle(doc, 'Reflection');
@@ -299,7 +282,11 @@ export function renderMonthlyPdf(doc, data) {
     ['Days exceeded loss limit', data.discipline.daysExceededLossLimit],
     ['Trades without COT confirmation', data.discipline.tradesWithoutCot],
     ['Avg discipline score', data.discipline.avgDisciplineScore != null ? num(data.discipline.avgDisciplineScore) : '—'],
+    ['Urge to break rules (trades)', data.discipline.urgeToBreakRulesCount ?? 0],
   ]);
+  if (data.discipline.triggers?.length) {
+    kvRow(doc, 'Common triggers this month', data.discipline.triggers.join(', '));
+  }
 
   sectionTitle(doc, 'Challenge Status');
   twoCol(doc, [

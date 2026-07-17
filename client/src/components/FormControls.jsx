@@ -32,7 +32,9 @@ export function TextField({ label, value, onChange, type = 'text', textarea, tal
   );
 }
 
-export function YesNo({ label, value, onChange, compact }) {
+export function YesNo({ label, value, onChange, compact, invert = false }) {
+  const yesActiveClass = invert ? 'bg-green/20 border-green text-green' : 'bg-red/20 border-red text-red';
+  const noActiveClass = invert ? 'bg-red/20 border-red text-red' : 'bg-green/20 border-green text-green';
   return (
     <div>
       <span className="block text-[10px] font-mono uppercase tracking-wide text-gray-500 mb-1.5">{label}</span>
@@ -40,14 +42,14 @@ export function YesNo({ label, value, onChange, compact }) {
         <button
           type="button"
           onClick={() => onChange(true)}
-          className={`flex-1 py-2 rounded-md text-xs font-mono border ${value === true ? 'bg-red/20 border-red text-red' : 'border-border text-gray-500'}`}
+          className={`flex-1 py-2 rounded-md text-xs font-mono border ${value === true ? yesActiveClass : 'border-border text-gray-500'}`}
         >
           Yes
         </button>
         <button
           type="button"
           onClick={() => onChange(false)}
-          className={`flex-1 py-2 rounded-md text-xs font-mono border ${value === false ? 'bg-green/20 border-green text-green' : 'border-border text-gray-500'}`}
+          className={`flex-1 py-2 rounded-md text-xs font-mono border ${value === false ? noActiveClass : 'border-border text-gray-500'}`}
         >
           No
         </button>

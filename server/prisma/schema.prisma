@@ -41,6 +41,17 @@ enum KeepDrop {
   UNDECIDED
 }
 
+enum Bias {
+  BULLISH
+  BEARISH
+  NEUTRAL
+}
+
+enum TradeOutcome {
+  SL
+  TP
+}
+
 // ---------- Core ----------
 
 model User {
@@ -101,9 +112,9 @@ model DailyLog {
   date                  DateTime
   dayNumberInChallenge  Int?
   accountBalance        Float
-  newsEvents            String?
-  preSessionBiasHtf     String?
-  keyVpLevels           String?
+  newsEvents            Boolean  @default(false)
+  preSessionBiasHtf     Bias?
+  keyVpLevels           Boolean? @default(false)
 
   // End of day summary
   dailyLossLimitHit     Boolean  @default(false)
@@ -137,6 +148,7 @@ model Trade {
   method         String?      // e.g. "VP POC", matches SetupPreference.setupType
   cotSignal      String?      // "Bull" / "Bear"
   resultR        Float?
+  outcome        TradeOutcome?
   pnl            Float?
   setupDescription String?
   domConfirmation  String?

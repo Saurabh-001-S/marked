@@ -5,8 +5,8 @@ import api from '../api/client';
 const MAX_TRADES_PER_DAY = 2;
 
 const emptyTrade = () => ({ direction: 'LONG', followedPlan: 'NA', emotion: {} });
-const emptyTopFields = { accountBalance: '', dayNumberInChallenge: '', newsEvents: '', preSessionBiasHtf: '', keyVpLevels: '' };
-const emptyEndOfDay = { dailyLossLimitHit: false, whatWorkedToday: '', whatToFixTomorrow: '', oneLineLesson: '' };
+const emptyTopFields = { accountBalance: '', dayNumberInChallenge: '', newsEvents: null, preSessionBiasHtf: '', keyVpLevels: null };
+const emptyEndOfDay = { dailyLossLimitHit: false, stayedWithinMaxTrades: true, whatWorkedToday: '', whatToFixTomorrow: '', oneLineLesson: '' };
 
 // Fields other than these two always carry a default value on an untouched
 // trade row, so anything else being non-empty means the user actually put
@@ -70,9 +70,9 @@ export function useDailyLog(accountId, date) {
     setTopFields({
       accountBalance: log.accountBalance ?? '',
       dayNumberInChallenge: log.dayNumberInChallenge ?? '',
-      newsEvents: log.newsEvents ?? '',
+      newsEvents: log.newsEvents ?? null,
       preSessionBiasHtf: log.preSessionBiasHtf ?? '',
-      keyVpLevels: log.keyVpLevels ?? '',
+      keyVpLevels: log.keyVpLevels ?? null,
     });
     setTrades(
       log.trades?.length
@@ -81,6 +81,7 @@ export function useDailyLog(accountId, date) {
     );
     setEndOfDay({
       dailyLossLimitHit: log.dailyLossLimitHit ?? false,
+      stayedWithinMaxTrades: log.stayedWithinMaxTrades ?? true,
       whatWorkedToday: log.whatWorkedToday ?? '',
       whatToFixTomorrow: log.whatToFixTomorrow ?? '',
       oneLineLesson: log.oneLineLesson ?? '',
@@ -112,7 +113,7 @@ export function useDailyLog(accountId, date) {
         preSessionBiasHtf: topFields.preSessionBiasHtf,
         keyVpLevels: topFields.keyVpLevels,
         trades: activeTrades.map(coerceTradeNumbers),
-        endOfDay: { ...endOfDay, stayedWithinMaxTrades: withinMaxTrades },
+        endOfDay,
       });
 
       // Per-trade emotion isn't a writable Trade column — it's a separate

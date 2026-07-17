@@ -8,7 +8,7 @@ import { registerSetupTypeIfNew } from './setupPreferenceController.js';
 // (which includes server-added fields) rather than only what changed.
 const TRADE_WRITABLE_FIELDS = [
   'time', 'direction', 'entry', 'stopLoss', 'takeProfit', 'lotSize',
-  'riskReward', 'method', 'cotSignal', 'resultR', 'pnl',
+  'riskReward', 'method', 'cotSignal', 'resultR', 'outcome', 'pnl',
   'setupDescription', 'domConfirmation', 'chartSnapshotUrl', 'followedPlan',
 ];
 function sanitizeTrade(t) {

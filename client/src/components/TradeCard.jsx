@@ -7,7 +7,11 @@ const PLAN_OPTIONS = ['YES', 'NO', 'NA'];
 export default function TradeCard({ trade, index, onChange, onRemove, setupOptions = [], accountId }) {
   const set = (field) => (e) => onChange(index, { ...trade, [field]: e.target.value });
   const setEmotion = (field) => (e) => onChange(index, { ...trade, emotion: { ...trade.emotion, [field]: e.target.value } });
-  const setUrgeToBreakRules = (value) => onChange(index, { ...trade, emotion: { ...trade.emotion, urgeToBreakRules: value } });
+  // Clearing whatTriggeredIt on "No" matters, not just cosmetic — without
+  // it, switching your answer from Yes to No would leave a stale trigger
+  // reason saved against a trade now marked as having no urge at all.
+  const setUrgeToBreakRules = (value) =>
+    onChange(index, { ...trade, emotion: { ...trade.emotion, urgeToBreakRules: value, whatTriggeredIt: value ? trade.emotion?.whatTriggeredIt : '' } });
 
   const [showCustomMethod, setShowCustomMethod] = useState(isCustomMethod(trade.method, setupOptions));
   const [uploadingSnapshot, setUploadingSnapshot] = useState(false);
@@ -65,7 +69,7 @@ export default function TradeCard({ trade, index, onChange, onRemove, setupOptio
         </Field>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-3">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-3">
         <Field label="Lot Size">
           <input type="number" step="0.01" value={trade.lotSize ?? ''} onChange={set('lotSize')} className="input" placeholder="—" />
         </Field>
@@ -87,6 +91,24 @@ export default function TradeCard({ trade, index, onChange, onRemove, setupOptio
         </Field>
         <Field label="Result (R)">
           <input type="number" step="0.1" value={trade.resultR ?? ''} onChange={set('resultR')} className="input" placeholder="—" />
+        </Field>
+        <Field label="Outcome">
+          <div className="flex gap-1.5">
+            <button
+              type="button"
+              onClick={() => onChange(index, { ...trade, outcome: 'SL' })}
+              className={`flex-1 py-2 rounded-md text-xs font-mono border ${trade.outcome === 'SL' ? 'bg-red/20 border-red text-red font-semibold' : 'border-border text-gray-500'}`}
+            >
+              SL
+            </button>
+            <button
+              type="button"
+              onClick={() => onChange(index, { ...trade, outcome: 'TP' })}
+              className={`flex-1 py-2 rounded-md text-xs font-mono border ${trade.outcome === 'TP' ? 'bg-green/20 border-green text-green font-semibold' : 'border-border text-gray-500'}`}
+            >
+              TP
+            </button>
+          </div>
         </Field>
       </div>
 
@@ -157,11 +179,13 @@ export default function TradeCard({ trade, index, onChange, onRemove, setupOptio
                 <button type="button" onClick={() => setUrgeToBreakRules(false)} className={`flex-1 py-2 rounded-md text-xs font-mono border ${trade.emotion?.urgeToBreakRules === false ? 'bg-green/20 border-green text-green' : 'border-border text-gray-500'}`}>No</button>
               </div>
             </Field>
-            <div className="md:col-span-2">
-              <Field label="What triggered it">
-                <input value={trade.emotion?.whatTriggeredIt || ''} onChange={setEmotion('whatTriggeredIt')} className="input" placeholder="FOMO, boredom..." />
-              </Field>
-            </div>
+            {trade.emotion?.urgeToBreakRules === true && (
+              <div className="md:col-span-2">
+                <Field label="What triggered it">
+                  <input value={trade.emotion?.whatTriggeredIt || ''} onChange={setEmotion('whatTriggeredIt')} className="input" placeholder="FOMO, boredom..." autoFocus />
+                </Field>
+              </div>
+            )}
           </div>
         )}
       </div>

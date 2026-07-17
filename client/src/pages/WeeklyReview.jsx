@@ -116,11 +116,20 @@ export default function WeeklyReview() {
             </Section>
 
             <Section title="Weekly Stats">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                 <Stat label="Win rate" value={data?.winRate != null ? `${data.winRate.toFixed(1)}%` : '—'} />
                 <Stat label="Total trades" value={data?.totals.trades} />
                 <Stat label="Starting balance" value={`$${data?.startBalance?.toLocaleString()}`} />
                 <Stat label="Ending balance" value={`$${data?.endBalance?.toLocaleString()}`} />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Stat label="Urge to break rules (trades)" value={data?.urgeToBreakRulesCount ?? 0} accent={data?.urgeToBreakRulesCount > 0 ? 'red' : undefined} />
+                {data?.triggers?.length > 0 && (
+                  <div className="bg-panel border border-border rounded-md px-4 py-3">
+                    <div className="text-[10px] font-mono uppercase tracking-wide text-gray-500 mb-1">Common triggers this week</div>
+                    <div className="text-sm text-gray-300">{data.triggers.join(', ')}</div>
+                  </div>
+                )}
               </div>
             </Section>
 
@@ -176,11 +185,12 @@ function Section({ title, children }) {
   );
 }
 
-function Stat({ label, value }) {
+function Stat({ label, value, accent }) {
+  const color = accent === 'red' ? 'text-red' : accent === 'green' ? 'text-green' : 'text-white';
   return (
     <div className="bg-panel border border-border rounded-md px-4 py-3">
       <div className="text-[10px] font-mono uppercase tracking-wide text-gray-500 mb-1">{label}</div>
-      <div className="font-mono text-lg font-semibold">{value ?? '—'}</div>
+      <div className={`font-mono text-lg font-semibold ${color}`}>{value ?? '—'}</div>
     </div>
   );
 }

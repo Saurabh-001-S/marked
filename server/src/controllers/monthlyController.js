@@ -25,7 +25,7 @@ export async function computeMonthlyRollup(userId, challengeAccountId, month) {
 
   const logs = await prisma.dailyLog.findMany({
     where: { challengeAccountId, date: { gte: monthStart, lt: monthEnd } },
-    include: { trades: true, emotionLog: true },
+    include: { trades: { include: { emotion: true } }, emotionLog: true },
     orderBy: { date: 'asc' },
   });
 
@@ -94,6 +94,8 @@ export async function computeMonthlyRollup(userId, challengeAccountId, month) {
   const tradesWithoutCot = allTrades.filter((t) => !t.cotSignal).length;
   const disciplineScores = logs.map((l) => l.emotionLog?.overallEmotionalState).filter((v) => v != null);
   const avgDisciplineScore = disciplineScores.length ? disciplineScores.reduce((a, b) => a + b, 0) / disciplineScores.length : null;
+  const urgeToBreakRulesCount = allTrades.filter((t) => t.emotion?.urgeToBreakRules).length;
+  const triggers = [...new Set(allTrades.map((t) => t.emotion?.whatTriggeredIt).filter(Boolean))];
 
   const startBalance = account.startingBalance;
   const currentBalance = balances[balances.length - 1] ?? startBalance;
@@ -116,7 +118,7 @@ export async function computeMonthlyRollup(userId, challengeAccountId, month) {
     core: { totalTrades, winRate, avgRR, netR, profitFactor, maxDrawdown },
     weeks,
     setupBreakdown,
-    discipline: { daysExceededMaxTrades, daysExceededLossLimit, tradesWithoutCot, avgDisciplineScore },
+    discipline: { daysExceededMaxTrades, daysExceededLossLimit, tradesWithoutCot, avgDisciplineScore, urgeToBreakRulesCount, triggers },
     challengeStatus: {
       profitTargetProgress,
       distanceToDrawdownLimit,

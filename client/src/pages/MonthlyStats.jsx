@@ -137,6 +137,13 @@ export default function MonthlyStats() {
                   <Row label="Days exceeded daily loss limit" value={data.discipline.daysExceededLossLimit} />
                   <Row label="Trades without COT confirmation" value={data.discipline.tradesWithoutCot} />
                   <Row label="Avg discipline score" value={data.discipline.avgDisciplineScore != null ? data.discipline.avgDisciplineScore.toFixed(1) : '—'} />
+                  <Row label="Urge to break rules (trades)" value={data.discipline.urgeToBreakRulesCount ?? 0} accent={data.discipline.urgeToBreakRulesCount > 0 ? 'red' : undefined} />
+                  {data.discipline.triggers?.length > 0 && (
+                    <div className="pt-2 mt-2 border-t border-border">
+                      <span className="text-gray-500">Common triggers</span>
+                      <div className="text-white mt-1">{data.discipline.triggers.join(', ')}</div>
+                    </div>
+                  )}
                 </div>
               </Section>
               <Section title="Challenge Status">

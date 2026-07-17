@@ -10,7 +10,7 @@ export async function computeWeeklyRollup(userId, challengeAccountId, weekStarti
 
   const logs = await prisma.dailyLog.findMany({
     where: { challengeAccountId, date: { gte: start, lt: end } },
-    include: { trades: true, emotionLog: true },
+    include: { trades: { include: { emotion: true } }, emotionLog: true },
     orderBy: { date: 'asc' },
   });
 
@@ -31,6 +31,10 @@ export async function computeWeeklyRollup(userId, challengeAccountId, weekStarti
       accountBalance: log.accountBalance,
     };
   });
+
+  const allTrades = logs.flatMap((l) => l.trades);
+  const urgeToBreakRulesCount = allTrades.filter((t) => t.emotion?.urgeToBreakRules).length;
+  const triggers = [...new Set(allTrades.map((t) => t.emotion?.whatTriggeredIt).filter(Boolean))];
 
   const totals = days.reduce(
     (acc, d) => ({
@@ -67,6 +71,8 @@ export async function computeWeeklyRollup(userId, challengeAccountId, weekStarti
     endBalance,
     onTrackForTarget: review?.onTrackForTarget ?? onTrackForTarget,
     reflection: review ?? null,
+    urgeToBreakRulesCount,
+    triggers,
   };
 }
 
